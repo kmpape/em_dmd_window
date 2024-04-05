@@ -10,6 +10,7 @@
 #include <assert.h>
 
 
+#define DEBUG		(0)
 #define PREFIX "Evolution Machine DMD Display"
 #define DMD_WIDTH	(2716)
 #define DMD_HEIGHT	(1600)
@@ -50,10 +51,13 @@ void gen_rand_img(unsigned char* img, int width, int height) {
 }
 
 int read_image(int newsockfd, int sockfd) {
+	int read_bytes = 0;
 	int bytes_in = 0;
 	int total_bytes_in = 0;
 	while (total_bytes_in < DMD_SIZE * sizeof(uint8_t)) {
-		bytes_in = read(newsockfd, buf, BUF_SIZE);
+		read_bytes = DMD_SIZE - total_bytes_in;
+		bytes_in = read(newsockfd, buf, read_bytes);
+//		bytes_in = read(newsockfd, buf, BUF_SIZE);
 		if (bytes_in < 0) {
 			perror("ERROR reading from socket");
 			sprintf(log_msg, "ERROR reading from socket");
@@ -63,6 +67,10 @@ int read_image(int newsockfd, int sockfd) {
 			sprintf(log_msg, "WARNING Connection closed by the client. Shutting down...\n");
 			print_log();
 			return 1;
+		} else if (total_bytes_in + bytes_in > DMD_SIZE * sizeof(uint8_t)) {
+			sprintf(log_msg, "ERROR Received more bytes than expected.\n");
+			print_log();
+			return -1;
 		}
 		buf_to_img(buf, img+total_bytes_in*3, bytes_in);
 		total_bytes_in += bytes_in;
@@ -226,8 +234,10 @@ int main(int argc, char* argv[]) {
 	sprintf(log_msg, "Initialised. Starting event loop...");
 	print_log();
     while (running) {
+#if (DEBUG == 1)
 		sprintf(log_msg, "At image %d.\n", iter);
 		print_log();
+#endif
     	if (read_image(newsockfd, sockfd) != 0) {
     		break;
     	}
@@ -236,8 +246,10 @@ int main(int argc, char* argv[]) {
 		SDL_UpdateTexture(texture, NULL, img, rect.w * 3);
 		SDL_RenderTexture(renderer, texture, NULL, NULL);
 		SDL_RenderPresent(renderer);
+#if (DEBUG == 1)
 		sprintf(log_msg, "Image transmission complete.");
 		print_log();
+#endif
         iter++;
     }
 
